@@ -12,12 +12,13 @@
 #include <linux/if_tun.h>
 #include <termios.h>
 #include <pthread.h>
+
 #include "slip/slip.h"
+#include "baudrates.h"
 
 
 #define TUN_NAME        "tun0"
-// #define SERIAL_DEVICE   "/dev/ttyUSB1" // Adjust this to your serial port device
-#define BUFFER_SIZE     3000
+#define BUFFER_SIZE     1600
 
 // File descriptors
 static int tun_fd;
@@ -141,11 +142,11 @@ void *thread_tun_rx(void *arg) {
             return NULL;
         }
         printf("Read %zd bytes from TUN interface\n", nread);
-        printf("Send msg: ");
-        for (uint32_t i = 0; i < nread; ++i) {
-            printf("%02X ", buffer[i]);
-        }
-        printf("\n");
+        // printf("Send msg: ");
+        // for (uint32_t i = 0; i < nread; ++i) {
+        //     printf("%02X ", buffer[i]);
+        // }
+        // printf("\n");
         slip_send_message(&slip, buffer, nread);
     }
 }
@@ -204,7 +205,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // exit(EXIT_SUCCESS);
 
     // Alloc TUN interface
     tun_fd = create_tun(tun_name);
@@ -214,9 +214,8 @@ int main(int argc, char *argv[]) {
         printf("Interface \"%s\" created\n", tun_name);
     }
 
-
     // Init UART port
-    serial_fd = open_uart(uart_name, B921600);
+    serial_fd = open_uart(uart_name, get_baud_rate(uart_speed));
     if (serial_fd < 0) {
         die(EXIT_FAILURE);
     } else {
