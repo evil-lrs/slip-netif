@@ -1,0 +1,3 @@
+[submodule "slip"]
+	path = slip
+	url = https://github.com/marcinbor85/slip.git
