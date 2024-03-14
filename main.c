@@ -182,7 +182,7 @@ void print_usage(char *program_name) {
 int main(int argc, char *argv[]) {
 
     pthread_t t_tun, t_uart;
-    int uart_speed = -1;
+    int uart_speed = 0;
     char* uart_name = NULL;
     char tun_name[IFNAMSIZ] = TUN_NAME;
 
@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (!uart_name || uart_speed < 0 ) {
+    if (!uart_name || !uart_speed) {
         print_usage(argv[0]);
         exit(EXIT_FAILURE);
     }
