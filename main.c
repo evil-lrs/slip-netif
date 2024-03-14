@@ -186,6 +186,12 @@ int main(int argc, char *argv[]) {
     char* uart_name = NULL;
     char tun_name[IFNAMSIZ] = TUN_NAME;
 
+    // Setup signal handlers
+    (void) signal(SIGHUP, die);
+    (void) signal(SIGINT, die);
+    (void) signal(SIGQUIT, die);
+    (void) signal(SIGTERM, die);
+
     // Parse params
     int opt;
     while ((opt = getopt(argc, argv, "s:l:d")) != -1) {
@@ -233,12 +239,6 @@ int main(int argc, char *argv[]) {
         .write_byte = slip_write_byte,
     };
     slip_init(&slip, &slip_descriptor);
-
-    // Set signal handler
-    (void) signal(SIGHUP, die);
-    (void) signal(SIGINT, die);
-    (void) signal(SIGQUIT, die);
-    (void) signal(SIGTERM, die);
 
     // Create TUN RX thread
     if (pthread_create(&t_tun, NULL, thread_tun_rx, NULL) != 0) {
