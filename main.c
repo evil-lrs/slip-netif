@@ -20,22 +20,25 @@
 #define TUN_NAME        "tun0"
 #define BUFFER_SIZE     1600
 
+
+
 // File descriptors
 static int tun_fd;
 static int serial_fd;
 
 static uint8_t          slip_buf[BUFFER_SIZE];
 static slip_handler_s   slip;
-
+static int              debug = 0;
 
 
 // Callback function for received SLIP messages
 void slip_recv_message(uint8_t *data, uint32_t size) {
-    // printf("Received decoded message: ");
-    // for (uint32_t i = 0; i < size; ++i) {
-    //     printf("%02X ", data[i]);
-    // }
-    // printf("\n");
+
+    if (debug) {
+        printf("[DBG] Received: ");
+        for (uint32_t i = 0; i < size; ++i) printf("%02X ", data[i]);
+        printf("\n");
+    }
 
     ssize_t nwrite = write(tun_fd, data, size);
     if (nwrite < 0) {
@@ -142,11 +145,11 @@ void *thread_tun_rx(void *arg) {
             return NULL;
         }
         printf("Read %zd bytes from TUN interface\n", nread);
-        // printf("Send msg: ");
-        // for (uint32_t i = 0; i < nread; ++i) {
-        //     printf("%02X ", buffer[i]);
-        // }
-        // printf("\n");
+        if (debug) {
+            printf("[DBG] Send: ");
+            for (uint32_t i = 0; i < nread; ++i) printf("%02X ", buffer[i]);
+            printf("\n");
+        }
         slip_send_message(&slip, buffer, nread);
     }
 }
@@ -182,7 +185,6 @@ int main(int argc, char *argv[]) {
     int uart_speed = -1;
     char* uart_name = NULL;
     char tun_name[IFNAMSIZ] = TUN_NAME;
-    int debug = 0;
 
     // Parse params
     int opt;
