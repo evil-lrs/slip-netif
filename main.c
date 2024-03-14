@@ -196,7 +196,7 @@ int main(int argc, char *argv[]) {
     int opt;
     while ((opt = getopt(argc, argv, "s:l:d")) != -1) {
         switch (opt) {
-            case 's':;
+            case 's':
                 uart_speed = atoi(optarg);
                 break;
             case 'l':
