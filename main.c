@@ -17,8 +17,8 @@
 #include "baudrates.h"
 
 
-#define DEFAULT_IF_NAME        "tun0"
-#define BUFFER_SIZE     1600
+#define DEFAULT_IF_NAME     "tun0"
+#define BUFFER_SIZE         1600
 
 
 
