@@ -13,7 +13,7 @@ Special thanks to [marcinbor85](https://github.com/marcinbor85/slip.git) for his
 ## Clone
 
 ```bash
-git clone --recurse-submodules git@github.com:evil-lrs/slip-netif.git
+git clone --recurse-submodules https://github.com/evil-lrs/slip-netif.git
 ```
 
 ## Build
