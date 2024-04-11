@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
                 verbose = 1;
                 break;
             case 'i':
-                strlcpy(tun_name, optarg, IFNAMSIZ);
+                strncpy(tun_name, optarg, IFNAMSIZ-1);
                 break;
         }
     }
