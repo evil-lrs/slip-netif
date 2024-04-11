@@ -17,7 +17,7 @@
 #include "baudrates.h"
 
 
-#define TUN_NAME        "tun0"
+#define DEFAULT_IF_NAME        "tun0"
 #define BUFFER_SIZE     1600
 
 
@@ -28,14 +28,14 @@ static int serial_fd;
 
 static uint8_t          slip_buf[BUFFER_SIZE];
 static slip_handler_s   slip;
-static int              debug = 0;
+static int              verbose = 0;
 
 
 // Callback function for received SLIP messages
 void slip_recv_message(uint8_t *data, uint32_t size) {
 
-    if (debug) {
-        printf("[DBG] Received: ");
+    if (verbose) {
+        printf("Received: ");
         for (uint32_t i = 0; i < size; ++i) printf("%02X ", data[i]);
         printf("\n");
     }
@@ -145,8 +145,8 @@ void *thread_tun_rx(void *arg) {
             return NULL;
         }
         printf("Read %zd bytes from TUN interface\n", nread);
-        if (debug) {
-            printf("[DBG] Send: ");
+        if (verbose) {
+            printf("Send: ");
             for (uint32_t i = 0; i < nread; ++i) printf("%02X ", buffer[i]);
             printf("\n");
         }
@@ -175,7 +175,7 @@ void die(int code) {
 }
 
 void print_usage(char *program_name) {
-    printf("\nUsage: %s -s [serial speed] -l [serial device] [-d]\n\n", program_name);
+    printf("\nUsage: %s -s <serial_name> -b <baud_rate> [-i <interface_name>] [-v]\n\n", program_name);
 }
 
 
@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
     pthread_t t_tun, t_uart;
     int uart_speed = 0;
     char* uart_name = NULL;
-    char tun_name[IFNAMSIZ] = TUN_NAME;
+    char tun_name[IFNAMSIZ] = DEFAULT_IF_NAME;
 
     // Setup signal handlers
     (void) signal(SIGHUP, die);
@@ -194,16 +194,19 @@ int main(int argc, char *argv[]) {
 
     // Parse params
     int opt;
-    while ((opt = getopt(argc, argv, "s:l:d")) != -1) {
+    while ((opt = getopt(argc, argv, "s:b:i:v")) != -1) {
         switch (opt) {
             case 's':
-                uart_speed = atoi(optarg);
-                break;
-            case 'l':
                 uart_name = optarg;
                 break;
-            case 'd':
-                debug = 1;
+            case 'b':
+                uart_speed = atoi(optarg);
+                break;
+            case 'v':
+                verbose = 1;
+                break;
+            case 'i':
+                strlcpy(tun_name, optarg, IFNAMSIZ);
                 break;
         }
     }
