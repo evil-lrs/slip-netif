@@ -156,6 +156,7 @@ void *thread_tun_rx(void *arg) {
 
 void *thread_uart_rx(void *arg) {
     uint8_t byte;
+    slip_error_t err;
 
     while(1) {
         ssize_t nread = read(serial_fd, &byte, 1);
@@ -163,7 +164,10 @@ void *thread_uart_rx(void *arg) {
             perror("Reading from UART port");
             return NULL;
         }
-        slip_read_byte(&slip, byte);
+        err = slip_read_byte(&slip, byte);
+        if (err != SLIP_NO_ERROR) {
+            printf("Read error: %d\n", err);
+        }
     }
 }
 
