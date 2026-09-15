@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <signal.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -19,6 +20,9 @@
 
 #define DEFAULT_IF_NAME     "tun0"
 #define BUFFER_SIZE         1600
+#define SERIAL_READ_SIZE    512
+#define SLIP_END_BYTE       SLIP_SPECIAL_BYTE_END
+#define SLIP_TX_BUFFER_SIZE ((BUFFER_SIZE + 2) * 2 + 2)
 
 
 
@@ -27,6 +31,9 @@ static int tun_fd;
 static int serial_fd;
 
 static uint8_t          slip_buf[BUFFER_SIZE];
+static uint8_t          slip_tx_buf[SLIP_TX_BUFFER_SIZE];
+static size_t           slip_tx_size = 0;
+static int              slip_tx_in_frame = 0;
 static slip_handler_s   slip;
 static int              verbose = 0;
 
@@ -45,17 +52,60 @@ void slip_recv_message(uint8_t *data, uint32_t size) {
         perror("Writing to TUN interface");
     }
 
-    printf("Wrote %zd bytes to TUN interface\n", nwrite);
+    if (verbose) {
+        printf("Wrote %zd bytes to TUN interface\n", nwrite);
+    }
 }
 
-// Callback function to send a byte over the serial connection
-uint8_t slip_write_byte(uint8_t byte) {
-    if (write(serial_fd, &byte, 1) == 1) {
-        return 1; // Success
-    } else {
-        perror("Serial write");
-        return 0; // Failure
+static int write_all(int fd, const uint8_t *data, size_t size) {
+    size_t offset = 0;
+
+    while (offset < size) {
+        ssize_t written = write(fd, data + offset, size - offset);
+        if (written > 0) {
+            offset += written;
+            continue;
+        }
+        if (written < 0 && errno == EINTR) {
+            continue;
+        }
+        return 0;
     }
+
+    return 1;
+}
+
+// The codec emits one byte at a time. Buffer a complete encoded frame so the
+// serial port sees one write() call instead of one syscall per byte.
+uint8_t slip_write_byte(uint8_t byte) {
+    if (!slip_tx_in_frame) {
+        if (byte != SLIP_END_BYTE) {
+            return 0;
+        }
+
+        slip_tx_size = 0;
+        slip_tx_in_frame = 1;
+    }
+
+    if (slip_tx_size >= sizeof(slip_tx_buf)) {
+        slip_tx_size = 0;
+        slip_tx_in_frame = 0;
+        return 0;
+    }
+
+    slip_tx_buf[slip_tx_size++] = byte;
+    if (byte != SLIP_END_BYTE || slip_tx_size == 1) {
+        return 1;
+    }
+
+    int success = write_all(serial_fd, slip_tx_buf, slip_tx_size);
+    slip_tx_size = 0;
+    slip_tx_in_frame = 0;
+
+    if (!success) {
+        perror("Serial write");
+    }
+    return success;
 }
 
 int create_tun(char *dev) {
@@ -135,6 +185,7 @@ int open_uart(const char *device, speed_t baud_rate) {
 }
 
 void *thread_tun_rx(void *arg) {
+    (void) arg;
 
     uint8_t buffer[BUFFER_SIZE];
 
@@ -144,8 +195,8 @@ void *thread_tun_rx(void *arg) {
             perror("Reading from TUN interface");
             return NULL;
         }
-        printf("Read %zd bytes from TUN interface\n", nread);
         if (verbose) {
+            printf("Read %zd bytes from TUN interface\n", nread);
             printf("Send: ");
             for (uint32_t i = 0; i < nread; ++i) printf("%02X ", buffer[i]);
             printf("\n");
@@ -155,18 +206,26 @@ void *thread_tun_rx(void *arg) {
 }
 
 void *thread_uart_rx(void *arg) {
-    uint8_t byte;
+    (void) arg;
+
+    uint8_t buffer[SERIAL_READ_SIZE];
     slip_error_t err;
 
     while(1) {
-        ssize_t nread = read(serial_fd, &byte, 1);
+        ssize_t nread = read(serial_fd, buffer, sizeof(buffer));
         if (nread < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
             perror("Reading from UART port");
             return NULL;
         }
-        err = slip_read_byte(&slip, byte);
-        if (err != SLIP_NO_ERROR) {
-            printf("Read error: %d\n", err);
+
+        for (ssize_t i = 0; i < nread; i++) {
+            err = slip_read_byte(&slip, buffer[i]);
+            if (err != SLIP_NO_ERROR) {
+                printf("Read error: %d\n", err);
+            }
         }
     }
 }
