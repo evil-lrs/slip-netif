@@ -75,8 +75,9 @@ static int write_all(int fd, const uint8_t *data, size_t size) {
     return 1;
 }
 
-// The codec emits one byte at a time. Buffer a complete encoded frame so the
-// serial port sees one write() call instead of one syscall per byte.
+// The codec emits one byte at a time. Buffer a complete encoded frame so it
+// can usually be emitted with a single write() instead of one syscall per
+// byte (write_all() may still issue several on partial writes or EINTR).
 uint8_t slip_write_byte(uint8_t byte) {
     if (!slip_tx_in_frame) {
         if (byte != SLIP_END_BYTE) {
@@ -201,7 +202,10 @@ void *thread_tun_rx(void *arg) {
             for (uint32_t i = 0; i < nread; ++i) printf("%02X ", buffer[i]);
             printf("\n");
         }
-        slip_send_message(&slip, buffer, nread);
+        slip_error_t err = slip_send_message(&slip, buffer, nread);
+        if (err != SLIP_NO_ERROR) {
+            fprintf(stderr, "SLIP send error: %d\n", err);
+        }
     }
 }
 
